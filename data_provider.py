@@ -76,8 +76,13 @@ class DLAM_Dataset(Dataset):
             df_l.groupby("series_id")[continuous_cols]
             .transform(lambda x: x.ffill().bfill())
         )
-        features_without_target = [c for c in df_l.columns if c != "target"]
-        df_l[features_without_target] = df_l.groupby("series_id")[features_without_target].ffill().bfill()
+        if self.set_type == 1:      
+            features_without_target = [c for c in df_l.columns if c != "target"]
+            df_l[features_without_target] = df_l.groupby("series_id")[features_without_target].ffill().bfill()
+            df_l["target"] = df_l.groupby('series_id')["target"].head(self.seq_len).ffill().bfill()
+        else:
+            df_l = df_l.groupby("series_id").ffill().bfill()
+
 
         self.unit_list = [] # (length per unit, time_stamp, data, cycle_index)
 

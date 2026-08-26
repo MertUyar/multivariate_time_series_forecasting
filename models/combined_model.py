@@ -1,4 +1,4 @@
-import GTR
+from GTR import GTR
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,10 +19,10 @@ class Combined_Model(nn.Module):
 
     def _build_model(self):
         model_dict = {
-            'DLinear': DLinear,
-            'iTransformer': iTransformer,
+            'DLinear': DLinear.BackboneModel,
+            'iTransformer': iTransformer.BackboneModel,
         }
-        model = model_dict[self.backbone].BackboneModel(self.configs).float()
+        model = model_dict[self.backbone](self.configs).float()
 
         return model
     

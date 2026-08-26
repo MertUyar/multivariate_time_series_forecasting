@@ -4,7 +4,7 @@ from statsmodels.tsa.stattools import acf
 from scipy.signal import find_peaks
 
 
-def analyze_candidate_cycles():
+def analyze_candidate_cycles(): # 24, 168, 672
     df = pd.read_csv(
         "hf://datasets/AIML-TUDA/dlam-ts-project-data-2026/train.csv"
     )

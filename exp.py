@@ -24,11 +24,11 @@ class Exp(object):
         self.model = Combined_Model(configs).to(self.device)
 
     def _get_data(self, flag):
-        data_set, data_loader = data_provider(self.args, flag)
+        data_set, data_loader = data_provider(self.configs, flag)
         return data_set, data_loader
 
     def _select_optimizer(self):
-        model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
+        model_optim = optim.Adam(self.model.parameters(), lr=self.configs.learning_rate)
         return model_optim
 
     def _select_criterion(self):
@@ -55,13 +55,16 @@ class Exp(object):
                     outputs = self.model(batch_x, batch_cycle, batch_x_mark)
 
                 f_dim = -1 if self.configs.features == 'MS' else 0
-                outputs = outputs[:, -self.args.pred_len:, f_dim:]
-                batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
+                outputs = outputs[:, -self.configs.pred_len:, f_dim:]
+                batch_y = batch_y[:, -self.configs.pred_len:, f_dim:].to(self.device)
 
                 pred = outputs.detach().cpu().numpy()
                 true = batch_y.detach().cpu().numpy()
 
-                loss = metric(pred, true).mean()
+                denorm_preds = np.stack([vali_data.inverse_transform(pred) for pred in pred])
+                denorm_trues = np.stack([vali_data.inverse_transform(true) for true in true])
+                
+                loss = np.mean(metric(denorm_preds, denorm_trues))
 
                 total_loss.append(loss)
         total_loss = np.average(total_loss)
@@ -84,14 +87,14 @@ class Exp(object):
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
 
-        if self.args.use_amp:
+        if self.configs.use_amp:
             scaler = torch.cuda.amp.GradScaler()
 
         scheduler = lr_scheduler.OneCycleLR(optimizer=model_optim,
                                             steps_per_epoch=train_steps,
-                                            pct_start=self.args.pct_start,
-                                            epochs=self.args.train_epochs,
-                                            max_lr=self.args.learning_rate)
+                                            pct_start=self.configs.pct_start,
+                                            epochs=self.configs.train_epochs,
+                                            max_lr=self.configs.learning_rate)
 
         for epoch in range(self.configs.train_epochs):
             iter_count = 0
@@ -111,33 +114,33 @@ class Exp(object):
                 batch_cycle = batch_cycle.int().to(self.device)
 
                 # encoder - decoder
-                if self.args.use_amp:
+                if self.configs.use_amp:
                     with torch.cuda.amp.autocast():
                         outputs = self.model(batch_x, batch_cycle, batch_x_mark)
 
-                        f_dim = -1 if self.args.features == 'MS' else 0
-                        outputs = outputs[:, -self.args.pred_len:, f_dim:]
-                        batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
+                        f_dim = -1 if self.configs.features == 'MS' else 0
+                        outputs = outputs[:, -self.configs.pred_len:, f_dim:]
+                        batch_y = batch_y[:, -self.configs.pred_len:, f_dim:].to(self.device)
                         loss = criterion(outputs, batch_y)
                         train_loss.append(loss.item())
                 else:
                     outputs = self.model(batch_x, batch_cycle, batch_x_mark)
                     # print(outputs.shape,batch_y.shape)
-                    f_dim = -1 if self.args.features == 'MS' else 0
-                    outputs = outputs[:, -self.args.pred_len:, f_dim:]
-                    batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
+                    f_dim = -1 if self.configs.features == 'MS' else 0
+                    outputs = outputs[:, -self.configs.pred_len:, f_dim:]
+                    batch_y = batch_y[:, -self.configs.pred_len:, f_dim:].to(self.device)
                     loss = criterion(outputs, batch_y)
                     train_loss.append(loss.item())
 
                 if (i + 1) % 100 == 0:
                     print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
                     speed = (time.time() - time_now) / iter_count
-                    left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
+                    left_time = speed * ((self.configs.train_epochs - epoch) * train_steps - i)
                     print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
                     iter_count = 0
                     time_now = time.time()
 
-                if self.args.use_amp:
+                if self.configs.use_amp:
                     scaler.scale(loss).backward()
                     scaler.step(model_optim)
                     scaler.update()
@@ -148,8 +151,8 @@ class Exp(object):
                 # current_memory = torch.cuda.max_memory_allocated() / 1024 ** 2
                 # max_memory = max(max_memory, current_memory)
 
-                if self.args.lradj == 'TST':
-                    adjust_learning_rate(model_optim, scheduler, epoch + 1, self.args, printout=False)
+                if self.configs.lradj == 'TST':
+                    adjust_learning_rate(model_optim, scheduler, epoch + 1, self.configs, printout=False)
                     scheduler.step()
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
@@ -163,8 +166,8 @@ class Exp(object):
                 print("Early stopping")
                 break
 
-            if self.args.lradj != 'TST':
-                adjust_learning_rate(model_optim, scheduler, epoch + 1, self.args)
+            if self.configs.lradj != 'TST':
+                adjust_learning_rate(model_optim, scheduler, epoch + 1, self.configs)
             else:
                 print('Updating learning rate to {}'.format(scheduler.get_last_lr()[0]))
 
@@ -200,16 +203,16 @@ class Exp(object):
                 batch_cycle = batch_cycle.int().to(self.device)
 
                 # encoder - decoder
-                if self.args.use_amp:
+                if self.configs.use_amp:
                     with torch.cuda.amp.autocast():
                         outputs = self.model(batch_x, batch_cycle, batch_x_mark)
                 else:
                     outputs = self.model(batch_x, batch_cycle, batch_x_mark)
 
-                f_dim = -1 if self.args.features == 'MS' else 0
+                f_dim = -1 if self.configs.features == 'MS' else 0
                 # print(outputs.shape,batch_y.shape)
-                outputs = outputs[:, -self.args.pred_len:, f_dim:]
-                batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
+                outputs = outputs[:, -self.configs.pred_len:, f_dim:]
+                batch_y = batch_y[:, -self.configs.pred_len:, f_dim:].to(self.device)
                 outputs = outputs.detach().cpu().numpy()
                 batch_y = batch_y.detach().cpu().numpy()
 
@@ -218,16 +221,6 @@ class Exp(object):
 
                 preds.append(pred)
                 trues.append(true)
-                # inputx.append(batch_x.detach().cpu().numpy())
-                if i % 20 == 0:
-                    input = batch_x.detach().cpu().numpy()
-
-                    gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
-                    pd = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
-
-                    visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
-                    # np.savetxt(os.path.join(folder_path, str(i) + '.txt'), pd)
-                    # np.savetxt(os.path.join(folder_path, str(i) + 'true.txt'), gt)
 
         preds = np.concatenate(preds, axis=0)
         trues = np.concatenate(trues, axis=0)
