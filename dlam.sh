@@ -23,8 +23,8 @@ model_name=GTRiTransformer
 backbone=iTransformer
 model_id_name=DLAM
 data_name=DLAM
-
-pred_len=336
+est_horizon=336
+pred_len=24
 
 mkdir -p ./logs/GTRiTransformer
 
@@ -44,11 +44,12 @@ do
       --model $model_name \
       --backbone $backbone \
       --data $data_name \
-      --features M \
+      --features MS \
       --seq_len $seq_len \
       --label_len 0 \
       --pred_len $pred_len \
-      --enc_in 23 \
+      --est_horizon $est_horizon \
+      --enc_in 24 \
       --cycle $cycle \
       --period_len 24 \
       --use_revin 1 \
@@ -87,11 +88,12 @@ do
       --model $model_name \
       --backbone $backbone \
       --data $data_name \
-      --features M \
+      --features MS \
       --seq_len $seq_len \
       --label_len 0 \
       --pred_len $pred_len \
-      --enc_in 23 \
+      --est_horizon $est_horizon \
+      --enc_in 24 \
       --cycle $cycle \
       --period_len 24 \
       --use_revin 1 \

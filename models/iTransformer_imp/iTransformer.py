@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from transformer_encoder import Encoder, EncoderLayer
-from self_attention import FullAttention, AttentionLayer
-from embed import DataEmbedding_inverted
+from .transformer_encoder import Encoder, EncoderLayer
+from .self_attention import FullAttention, AttentionLayer
+from .embed import DataEmbedding_inverted
 
 
 class BackboneModel(nn.Module):

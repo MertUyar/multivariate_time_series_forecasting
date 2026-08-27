@@ -21,8 +21,8 @@ class DLAM_Dataset(Dataset):
             self.label_len = size[1]
             self.pred_len = size[2]
             
-        assert flag in ['train', 'val']
-        type_map = {'train': 0, 'val': 1}
+        assert flag in ['train', 'val', 'pred']
+        type_map = {'train': 0, 'val': 1, 'pred':2}
         self.set_type = type_map[flag]
         
         self.scale = scale
@@ -33,6 +33,7 @@ class DLAM_Dataset(Dataset):
         self.num_series = num_series
         self.train_timestamp_length = train_timestamp_length
         self.val_timestamp_length = val_timestamp_length
+        self._phase_offset = (0 if self.set == 0 else (self.train_timestamp_length - self.seq_len) % self.cycle)
 
         self.__read_data__()
 
@@ -71,11 +72,25 @@ class DLAM_Dataset(Dataset):
         features_without_target = [c for c in df_raw_train.columns if c != self.id_col]
         df_raw_train[features_without_target] = df_raw_train.groupby(self.id_col)[features_without_target].ffill().bfill()
 
+        border1s = [0, self.train_timestamp_length - self.val_timestamp_length - self.seq_len]
+        border2s = [self.train_timestamp_length - self.val_timestamp_length, self.train_timestamp_length]
+        
+
         if self.set_type == 0:
+            border1 = border1s[self.set_type]
+            border2 = border2s[self.set_type]
             df_l = df_raw_train
             self.windows_per_unit = self.train_timestamp_length - self.seq_len - self.pred_len + 1
         elif self.set_type == 1:
+            border1 = border1s[self.set_type]
+            border2 = border2s[self.set_type]
+            df_l = df_raw_train
+            self.windows_per_unit = self.val_timestamp_length - self.pred_len + 1
+        elif self.set_type == 2:
             df_raw_val = pd.read_csv("hf://datasets/AIML-TUDA/dlam-ts-project-data-2026/" + splits["val"])
+
+            border1 = 0
+            border2 = self.seq_len + self.val_timestamp_length
             
             features_without_target = [c for c in df_raw_val.columns if c != "target" and c != self.id_col]
             df_raw_val[features_without_target] = df_raw_val.groupby(self.id_col)[features_without_target].ffill().bfill()
@@ -85,10 +100,7 @@ class DLAM_Dataset(Dataset):
             self.windows_per_unit = self.val_timestamp_length - self.pred_len + 1
             df_l = df_l.sort_values(["series_id", "timestamp"])
 
-
-
-        
-        if self.set_type == 1:      
+        if self.set_type == 2:      
             features_without_target = [c for c in df_l.columns if c != "target" and c != "series_id"]
             df_l[features_without_target] = df_l.groupby("series_id")[features_without_target].ffill().bfill()
 
@@ -96,10 +108,13 @@ class DLAM_Dataset(Dataset):
         self.unit_list = [] # (length per unit, time_stamp, data, cycle_index)
 
         if self.scale:
-            self.scaler.fit(df_raw_train[df_raw_train.columns[2:]])
+            train_for_scaling = (df_raw_train.groupby(self.id_col, group_keys=False).apply(lambda x: x.iloc[:-self.val_timestamp_length])
+            )
+            self.scaler.fit(train_for_scaling[df_raw_train.columns[2:]])
 
         timestamp_length = self.windows_per_unit + self.seq_len + self.pred_len - 1
         for s_i, df_raw in df_l.groupby(self.id_col, sort=True):
+            df_raw = df_raw[border1:border2]
             assert df_raw.shape[0] == timestamp_length
 
             cols_data = df_raw.columns[2:]
@@ -123,7 +138,7 @@ class DLAM_Dataset(Dataset):
                 data_stamp = data_stamp.transpose(1, 0)
 
             self.unit_list.append((int(s_i.split('_')[-1]), data_stamp, data, 
-                                   ((np.arange(len(data))  + ((self.train_timestamp_length - self.seq_len) % self.cycle)) % self.cycle)))
+                                   ((np.arange(len(data))  + self._phase_offset) % self.cycle)))
 
     def __getitem__(self, index):
 

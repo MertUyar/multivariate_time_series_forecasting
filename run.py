@@ -38,7 +38,9 @@ parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='l
 # forecasting task
 parser.add_argument('--seq_len', type=int, default=336, help='input sequence length')
 parser.add_argument('--label_len', type=int, default=0, help='start token length')  # fixed: encoder-only model
-parser.add_argument('--pred_len', type=int, default=336, help='prediction sequence length')
+parser.add_argument('--pred_len', type=int, default=24, help='prediction sequence length of the model')
+parser.add_argument('--est_horizon', type=int, default=336, help='prediction sequence length we want in total')
+
 
 # GTR
 parser.add_argument('--cycle', type=int, default=24,

@@ -37,6 +37,9 @@ class Exp(object):
 
     def vali(self, vali_data, vali_loader, metric):
         total_loss = []
+        preds = []
+        trues = []
+        inputx = []
         self.model.eval()
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark, batch_cycle) in enumerate(vali_loader):
@@ -49,22 +52,19 @@ class Exp(object):
 
                 # encoder - decoder
                 if self.configs.use_amp:
-                    with torch.cuda.amp.autocast(): 
+                    with torch.amp.autocast(device_type="cuda"): 
                         outputs = self.model(batch_x, batch_cycle, batch_x_mark)
                 else:
                     outputs = self.model(batch_x, batch_cycle, batch_x_mark)
 
-                f_dim = -1 if self.configs.features == 'MS' else 0
-                outputs = outputs[:, -self.configs.pred_len:, f_dim:]
-                batch_y = batch_y[:, -self.configs.pred_len:, f_dim:].to(self.device)
+                f_dim = -1 if self.args.features == 'MS' else 0
+                outputs = outputs[:, -self.args.pred_len:, f_dim:]
+                batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
 
                 pred = outputs.detach().cpu().numpy()
                 true = batch_y.detach().cpu().numpy()
 
-                denorm_preds = np.stack([vali_data.inverse_transform(pred) for pred in pred])
-                denorm_trues = np.stack([vali_data.inverse_transform(true) for true in true])
-                
-                loss = np.mean(metric(denorm_preds, denorm_trues))
+                loss = metric(pred, true)
 
                 total_loss.append(loss)
         total_loss = np.average(total_loss)
@@ -115,7 +115,7 @@ class Exp(object):
 
                 # encoder - decoder
                 if self.configs.use_amp:
-                    with torch.cuda.amp.autocast():
+                    with torch.amp.autocast(device_type="cuda"):
                         outputs = self.model(batch_x, batch_cycle, batch_x_mark)
 
                         f_dim = -1 if self.configs.features == 'MS' else 0
@@ -204,7 +204,7 @@ class Exp(object):
 
                 # encoder - decoder
                 if self.configs.use_amp:
-                    with torch.cuda.amp.autocast():
+                    with torch.amp.autocast(device_type="cuda"):
                         outputs = self.model(batch_x, batch_cycle, batch_x_mark)
                 else:
                     outputs = self.model(batch_x, batch_cycle, batch_x_mark)
@@ -240,7 +240,7 @@ class Exp(object):
             os.makedirs(folder_path)
 
         # wape, mae, mse, rmse, mape, mspe, rse, corr = metrics.metric(preds, trues)
-        wape, mae, mse, rmse, mape, mspe, rse, corr = metrics.metric(denorm_preds, denorm_trues)
+        wape, mae, mse, rmse, mape, mspe, rse, corr = metrics.metric(denorm_preds[:,:,-1], denorm_trues[:,:,-1])
 
         print('mse:{}, mae:{}, wape:{}'.format(mse, mae, wape))
         f = open("result.txt", 'a')
@@ -254,4 +254,50 @@ class Exp(object):
         # np.save(folder_path + 'pred.npy', preds)
         # np.save(folder_path + 'true.npy', trues)
         # np.save(folder_path + 'x.npy', inputx)
+        return
+
+def predict(self, setting, load=False):
+        pred_data, pred_loader = self._get_data(flag='pred')
+
+        if load:
+            path = os.path.join(self.args.checkpoints, setting)
+            best_model_path = path + '/' + 'checkpoint.pth'
+            self.model.load_state_dict(torch.load(best_model_path))
+
+        preds = []
+
+        self.model.eval()
+        with torch.no_grad():
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark, batch_cycle) in enumerate(pred_loader):
+                batch_x = batch_x.float().to(self.device)
+                batch_y = batch_y.float()
+                batch_x_mark = batch_x_mark.float().to(self.device)
+                batch_y_mark = batch_y_mark.float().to(self.device)
+                batch_cycle = batch_cycle.int().to(self.device)
+
+                if self.args.use_amp:
+                    with torch.amp.autocast(device_type="cuda"): 
+                        outputs = self.model(batch_x, batch_cycle, batch_x_mark)
+                else:
+                    outputs = self.model(batch_x, batch_cycle, batch_x_mark)
+
+                f_dim = -1 if self.args.features == 'MS' else 0
+                outputs = outputs[:, -self.args.pred_len:, f_dim:]
+                batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
+
+                pred = outputs.detach().cpu().numpy()  # .squeeze()
+                preds.append(pred)
+
+        preds = np.array(preds)
+        preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
+        denorm_preds = np.stack([pred_data.inverse_transform(pred) for pred in preds])
+
+
+        # result save
+        folder_path = './results/' + setting + '/'
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+
+        np.save(folder_path + 'real_prediction.npy', denorm_preds)
+
         return
