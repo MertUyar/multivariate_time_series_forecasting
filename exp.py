@@ -213,8 +213,6 @@ class Exp(object):
                 # print(outputs.shape,batch_y.shape)
                 outputs = outputs[:, -self.configs.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.configs.pred_len:, f_dim:].to(self.device)
-                outputs = outputs.detach().cpu().numpy()
-                batch_y = batch_y.detach().cpu().numpy()
 
                 pred = outputs.detach().cpu().numpy()  # .squeeze()
                 true = batch_y.detach().cpu().numpy()  # .squeeze()

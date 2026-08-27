@@ -40,7 +40,7 @@ class AttentionLayer(nn.Module):
         self.out_projection = nn.Linear(d_values * n_heads, d_model)
         self.n_heads = n_heads
 
-    def forward(self, queries, keys, values, attn_mask, tau=None, delta=None):
+    def forward(self, queries, keys, values, tau=None, delta=None):
         B, L, _ = queries.shape
         _, S, _ = keys.shape
         H = self.n_heads
@@ -53,7 +53,6 @@ class AttentionLayer(nn.Module):
             queries,
             keys,
             values,
-            attn_mask,
             tau=tau,
             delta=delta
         )

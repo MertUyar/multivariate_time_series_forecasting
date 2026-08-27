@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import DLinear
-from iTransformer import iTransformer
+from iTransformer_imp import iTransformer
 
 class Combined_Model(nn.Module):
     def __init__(self, configs):
