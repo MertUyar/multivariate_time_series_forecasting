@@ -1,7 +1,7 @@
 from data_provider import data_provider
 from models.combined_model import Combined_Model
 import metrics
-
+import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
@@ -57,9 +57,9 @@ class Exp(object):
                 else:
                     outputs = self.model(batch_x, batch_cycle, batch_x_mark)
 
-                f_dim = -1 if self.args.features == 'MS' else 0
-                outputs = outputs[:, -self.args.pred_len:, f_dim:]
-                batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
+                f_dim = -1 if self.configs.features == 'MS' else 0
+                outputs = outputs[:, -self.configs.pred_len:, f_dim:]
+                batch_y = batch_y[:, -self.configs.pred_len:, f_dim:].to(self.device)
 
                 pred = outputs.detach().cpu().numpy()
                 true = batch_y.detach().cpu().numpy()
@@ -209,10 +209,8 @@ class Exp(object):
                 else:
                     outputs = self.model(batch_x, batch_cycle, batch_x_mark)
 
-                f_dim = -1 if self.configs.features == 'MS' else 0
-                # print(outputs.shape,batch_y.shape)
-                outputs = outputs[:, -self.configs.pred_len:, f_dim:]
-                batch_y = batch_y[:, -self.configs.pred_len:, f_dim:].to(self.device)
+                outputs = outputs[:, -self.configs.pred_len:, :]
+                batch_y = batch_y[:, -self.configs.pred_len:, :].to(self.device)
 
                 pred = outputs.detach().cpu().numpy()  # .squeeze()
                 true = batch_y.detach().cpu().numpy()  # .squeeze()
@@ -239,8 +237,12 @@ class Exp(object):
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
+        if self.args.features == 'MS':
+            denorm_preds = denorm_preds[:,:,-1]
+            denorm_trues = denorm_trues[:,:,-1]
+
         # wape, mae, mse, rmse, mape, mspe, rse, corr = metrics.metric(preds, trues)
-        wape, mae, mse, rmse, mape, mspe, rse, corr = metrics.metric(denorm_preds[:,:,-1], denorm_trues[:,:,-1])
+        wape, mae, mse, rmse, mape, mspe, rse, corr = metrics.metric(denorm_preds, denorm_trues)
 
         print('mse:{}, mae:{}, wape:{}'.format(mse, mae, wape))
         f = open("result.txt", 'a')
@@ -256,11 +258,11 @@ class Exp(object):
         # np.save(folder_path + 'x.npy', inputx)
         return
 
-def predict(self, setting, load=False):
+    def predict(self, setting, load=False):
         pred_data, pred_loader = self._get_data(flag='pred')
 
         if load:
-            path = os.path.join(self.args.checkpoints, setting)
+            path = os.path.join(self.configs.checkpoints, setting)
             best_model_path = path + '/' + 'checkpoint.pth'
             self.model.load_state_dict(torch.load(best_model_path))
 
@@ -270,28 +272,28 @@ def predict(self, setting, load=False):
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark, batch_cycle) in enumerate(pred_loader):
                 batch_x = batch_x.float().to(self.device)
-                batch_y = batch_y.float()
+                # batch_y = batch_y.float()
                 batch_x_mark = batch_x_mark.float().to(self.device)
-                batch_y_mark = batch_y_mark.float().to(self.device)
+                # batch_y_mark = batch_y_mark.float().to(self.device)
                 batch_cycle = batch_cycle.int().to(self.device)
 
-                if self.args.use_amp:
+                arr = np.concatenate(preds, axis=-1).flatten()
+                batch_x[0, -arr.shape[0]:, -1] = arr
+
+                if self.configs.use_amp:
                     with torch.amp.autocast(device_type="cuda"): 
                         outputs = self.model(batch_x, batch_cycle, batch_x_mark)
                 else:
                     outputs = self.model(batch_x, batch_cycle, batch_x_mark)
 
-                f_dim = -1 if self.args.features == 'MS' else 0
-                outputs = outputs[:, -self.args.pred_len:, f_dim:]
-                batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
+                outputs = outputs[:, -self.configs.pred_len:, :]
+                preds.append(outputs.detach().cpu().numpy())
 
-                pred = outputs.detach().cpu().numpy()  # .squeeze()
-                preds.append(pred)
+        preds = np.concatenate(preds, axis=0)                      
+        denorm_preds = np.stack([pred_data.inverse_transform(p) for p in preds])
 
-        preds = np.array(preds)
-        preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
-        denorm_preds = np.stack([pred_data.inverse_transform(pred) for pred in preds])
-
+        if self.args.features == 'MS':
+            denorm_preds = denorm_preds[:, :, -1]
 
         # result save
         folder_path = './results/' + setting + '/'
@@ -299,5 +301,36 @@ def predict(self, setting, load=False):
             os.makedirs(folder_path)
 
         np.save(folder_path + 'real_prediction.npy', denorm_preds)
+        print('saved predictions:', denorm_preds.shape, '->', folder_path + 'real_prediction.npy')
+
+        self._dlam_to_csv(denorm_preds, folder_path)
 
         return
+
+    def _dlam_to_csv(preds, folder_path):
+        preds = preds.reshape(-1)
+        print(preds.shape)
+        print("Expected submission rows:", 96 * 336)
+
+        index = pd.read_csv("hf://datasets/AIML-TUDA/dlam-ts-project-data-2026/forecast_index_validation.csv")
+
+        print("predictions:", len(preds))
+        print("forecast index:", len(index))
+
+        assert len(preds) == len(index), \
+            f"{len(preds)} predictions but {len(index)} forecast rows"
+
+        submission = pd.DataFrame({
+            "series_id": index["series_id"],
+            "timestamp": index["timestamp"],
+            "prediction": preds,
+        })
+
+        submission.to_csv(
+            folder_path + "submission.csv",
+            index=False
+        )
+
+        print(submission.head())
+        print(submission.shape)
+    

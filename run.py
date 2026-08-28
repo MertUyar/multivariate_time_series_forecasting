@@ -40,7 +40,8 @@ parser.add_argument('--seq_len', type=int, default=336, help='input sequence len
 parser.add_argument('--label_len', type=int, default=0, help='start token length')  # fixed: encoder-only model
 parser.add_argument('--pred_len', type=int, default=24, help='prediction sequence length of the model')
 parser.add_argument('--est_horizon', type=int, default=336, help='prediction sequence length we want in total')
-
+parser.add_argument('--do_predict', action='store_true', default=False,
+                    help='after training, run predict() on validation_input and save real_prediction.npy')
 
 # GTR
 parser.add_argument('--cycle', type=int, default=24,
@@ -141,6 +142,10 @@ if args.is_training:
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
         exp.test(setting)
 
+        if args.do_predict:
+            print('>>>>>>>predicting : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+            exp.predict(setting, load=False)
+
         if args.use_gpu:
             torch.cuda.empty_cache()
 else:
@@ -150,6 +155,10 @@ else:
     exp = Exp(args)  # set experiments
     print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
     exp.test(setting, test=1)
+
+    if args.do_predict:
+        print('>>>>>>>predicting : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+        exp.predict(setting, load=True)
 
     if args.use_gpu:
         torch.cuda.empty_cache()

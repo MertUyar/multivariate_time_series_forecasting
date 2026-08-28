@@ -15,7 +15,8 @@ class DLAM_Dataset(Dataset):
         if size == None:
             self.seq_len = 24 * 4 * 4
             self.label_len = 24 * 4
-            self.pred_len = 24 * 4
+            self.pred_len = 24
+            self.est_horizon = 24 * 7
         else:
             self.seq_len = size[0]
             self.label_len = size[1]
@@ -33,7 +34,7 @@ class DLAM_Dataset(Dataset):
         self.num_series = num_series
         self.train_timestamp_length = train_timestamp_length
         self.val_timestamp_length = val_timestamp_length
-        self._phase_offset = (0 if self.set == 0 else (self.train_timestamp_length - self.seq_len) % self.cycle)
+        self._phase_offset = (0 if self.set_type == 0 else (self.train_timestamp_length - self.seq_len) % self.cycle)
 
         self.__read_data__()
 
@@ -80,7 +81,7 @@ class DLAM_Dataset(Dataset):
             border1 = border1s[self.set_type]
             border2 = border2s[self.set_type]
             df_l = df_raw_train
-            self.windows_per_unit = self.train_timestamp_length - self.seq_len - self.pred_len + 1
+            self.windows_per_unit = self.train_timestamp_length - self.val_timestamp_length - self.seq_len - self.pred_len + 1
         elif self.set_type == 1:
             border1 = border1s[self.set_type]
             border2 = border2s[self.set_type]
@@ -97,12 +98,8 @@ class DLAM_Dataset(Dataset):
 
             df_t = df_raw_train.groupby(self.id_col, sort=False).tail(self.seq_len)
             df_l = pd.concat([df_t, df_raw_val], ignore_index=True)
-            self.windows_per_unit = self.val_timestamp_length - self.pred_len + 1
+            self.windows_per_unit = (self.val_timestamp_length - self.est_horizon) //  self.pred_len + 1
             df_l = df_l.sort_values(["series_id", "timestamp"])
-
-        if self.set_type == 2:      
-            features_without_target = [c for c in df_l.columns if c != "target" and c != "series_id"]
-            df_l[features_without_target] = df_l.groupby("series_id")[features_without_target].ffill().bfill()
 
 
         self.unit_list = [] # (length per unit, time_stamp, data, cycle_index)
@@ -144,6 +141,8 @@ class DLAM_Dataset(Dataset):
 
         unit_index = index // self.windows_per_unit
         time_index = index % self.windows_per_unit
+        if self.set_type == 2:
+            time_index *= self.pred_len
 
         s_begin = time_index
         s_end = time_index + self.seq_len
@@ -192,6 +191,11 @@ def data_provider(configs, flag):
         drop_last = False
         batch_size = configs.batch_size
         freq = configs.freq
+    elif flag == 'pred':
+        shuffle_flag = False
+        drop_last = False
+        batch_size = 1
+        freq = configs.freq
     else:
         shuffle_flag = True
         drop_last = True
@@ -202,7 +206,7 @@ def data_provider(configs, flag):
         root_path=configs.root_path,
         data_path=configs.data_path,
         flag=flag,
-        size=[configs.seq_len, configs.label_len, configs.pred_len],
+        size=[configs.seq_len, configs.label_len, configs.pred_len, configs.est_horizon],
         scale=configs.scale,
         timeenc=timeenc,
         freq=freq,

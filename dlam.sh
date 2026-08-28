@@ -49,6 +49,7 @@ do
       --label_len 0 \
       --pred_len $pred_len \
       --est_horizon $est_horizon \
+      --do_predict False \
       --enc_in 24 \
       --cycle $cycle \
       --period_len 24 \
@@ -93,6 +94,7 @@ do
       --label_len 0 \
       --pred_len $pred_len \
       --est_horizon $est_horizon \
+      --do_predict False \
       --enc_in 24 \
       --cycle $cycle \
       --period_len 24 \
