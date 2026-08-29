@@ -26,6 +26,8 @@ data_name=DLAM
 est_horizon=336
 pred_len=24
 
+# try pred_len 336
+
 mkdir -p ./logs/GTRiTransformer
 
 # ---------------------------------------------------------------------------

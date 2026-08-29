@@ -99,7 +99,12 @@ class DLAM_Dataset(Dataset):
 
             df_t = df_raw_train.groupby(self.id_col, sort=False).tail(self.seq_len)
             df_l = pd.concat([df_t, df_raw_val], ignore_index=True)
-            self.windows_per_unit = (self.val_timestamp_length - self.est_horizon) //  self.pred_len + 1
+
+            assert self.val_timestamp_length % self.pred_len == 0
+            assert self.est_horizon % self.pred_len == 0
+            assert self.val_timestamp_length >= self.est_horizon
+
+            self.windows_per_unit = self.val_timestamp_length - self.est_horizon + 1
             df_l = df_l.sort_values(["series_id", "timestamp"])
 
 
@@ -114,6 +119,7 @@ class DLAM_Dataset(Dataset):
             timestamp_length = self.val_timestamp_length + self.seq_len
         else:
             timestamp_length = self.windows_per_unit + self.seq_len + self.pred_len - 1
+            
         for s_i, df_raw in df_l.groupby(self.id_col, sort=True):
             df_raw = df_raw[border1:border2]
             assert df_raw.shape[0] == timestamp_length

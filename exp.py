@@ -271,23 +271,26 @@ class Exp(object):
         self.model.eval()
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark, batch_cycle) in enumerate(pred_loader):
-                batch_x = batch_x.float().to(self.device)
-                # batch_y = batch_y.float()
-                batch_x_mark = batch_x_mark.float().to(self.device)
+                batch_x = np.concatenate(batch_x, batch_y, axis=1).float().to(self.device)
+                # batch_y = batch_y.float().to(self.device)
+                batch_x_mark = np.concatenate(batch_x_mark, batch_y_mark, axis=1).float().to(self.device)
                 # batch_y_mark = batch_y_mark.float().to(self.device)
                 batch_cycle = batch_cycle.int().to(self.device)
 
-                arr = np.concatenate(preds, axis=-1).flatten()
-                batch_x[0, -arr.shape[0]:, -1] = arr
+                for i in range(self.configs.est_horizon // self.configs.pred_len):
+                    predicted_step = i*self.configs.pred_len
+                    batch = batch_x[:,predicted_step:self.configs.seq_len + predicted_step,:]
+                    batch_mark = batch_x_mark[:,predicted_step:self.configs.seq_len + predicted_step,:]
 
-                if self.configs.use_amp:
-                    with torch.amp.autocast(device_type="cuda"): 
-                        outputs = self.model(batch_x, batch_cycle, batch_x_mark)
-                else:
-                    outputs = self.model(batch_x, batch_cycle, batch_x_mark)
+                    if self.configs.use_amp:
+                        with torch.amp.autocast(device_type="cuda"): 
+                            outputs = self.model(batch, batch_cycle, batch_mark)
+                    else:
+                        outputs = self.model(batch, batch_cycle, batch_mark)
 
-                outputs = outputs[:, -self.configs.pred_len:, :]
-                preds.append(outputs.detach().cpu().numpy())
+                    outputs = outputs
+                    preds.append(outputs.detach().cpu().numpy())
+                    batch_x[:, self.configs.seq_len + predicted_step:self.configs.seq_len + predicted_step + self.configs.pred_len, -1] = outputs[:,:,-1]
 
         preds = np.concatenate(preds, axis=0)                      
         denorm_preds = np.stack([pred_data.inverse_transform(p) for p in preds])
