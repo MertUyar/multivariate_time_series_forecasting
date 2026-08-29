@@ -237,7 +237,7 @@ class Exp(object):
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
-        if self.args.features == 'MS':
+        if self.configs.features == 'MS':
             denorm_preds = denorm_preds[:,:,-1]
             denorm_trues = denorm_trues[:,:,-1]
 
@@ -292,7 +292,7 @@ class Exp(object):
         preds = np.concatenate(preds, axis=0)                      
         denorm_preds = np.stack([pred_data.inverse_transform(p) for p in preds])
 
-        if self.args.features == 'MS':
+        if self.configs.features == 'MS':
             denorm_preds = denorm_preds[:, :, -1]
 
         # result save
@@ -307,7 +307,7 @@ class Exp(object):
 
         return
 
-    def _dlam_to_csv(preds, folder_path):
+    def _dlam_to_csv(self, preds, folder_path):
         preds = preds.reshape(-1)
         print(preds.shape)
         print("Expected submission rows:", 96 * 336)

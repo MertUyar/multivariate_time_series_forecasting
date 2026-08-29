@@ -21,6 +21,7 @@ class DLAM_Dataset(Dataset):
             self.seq_len = size[0]
             self.label_len = size[1]
             self.pred_len = size[2]
+            self.est_horizon = size[3]
             
         assert flag in ['train', 'val', 'pred']
         type_map = {'train': 0, 'val': 1, 'pred':2}
@@ -109,7 +110,10 @@ class DLAM_Dataset(Dataset):
             )
             self.scaler.fit(train_for_scaling[df_raw_train.columns[2:]])
 
-        timestamp_length = self.windows_per_unit + self.seq_len + self.pred_len - 1
+        if self.set_type == 2:
+            timestamp_length = self.val_timestamp_length + self.seq_len
+        else:
+            timestamp_length = self.windows_per_unit + self.seq_len + self.pred_len - 1
         for s_i, df_raw in df_l.groupby(self.id_col, sort=True):
             df_raw = df_raw[border1:border2]
             assert df_raw.shape[0] == timestamp_length
