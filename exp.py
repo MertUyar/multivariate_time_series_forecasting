@@ -271,9 +271,9 @@ class Exp(object):
         self.model.eval()
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark, batch_cycle) in enumerate(pred_loader):
-                batch_x = torch.concatenate(batch_x, batch_y, axis=1).float().to(self.device)
+                batch_x = torch.concatenate((batch_x, batch_y), axis=1).float().to(self.device)
                 # batch_y = batch_y.float().to(self.device)
-                batch_x_mark = torch.concatenate(batch_x_mark, batch_y_mark, axis=1).float().to(self.device)
+                batch_x_mark = torch.concatenate((batch_x_mark, batch_y_mark), axis=1).float().to(self.device)
                 # batch_y_mark = batch_y_mark.float().to(self.device)
                 batch_cycle = batch_cycle.int().to(self.device)
 
