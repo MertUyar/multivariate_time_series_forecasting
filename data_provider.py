@@ -157,8 +157,11 @@ class DLAM_Dataset(Dataset):
         s_begin = time_index
         s_end = time_index + self.seq_len
         r_begin = s_end - self.label_len
-        r_end = r_begin + self.label_len + self.pred_len
-
+        if self.set_type == 2:
+            r_end = r_begin + self.label_len + self.est_horizon
+        else:
+            r_end = r_begin + self.label_len + self.pred_len
+            
         unit_id, data_stamp, data, cycle_index = self.unit_list[unit_index]
 
         data_x = data

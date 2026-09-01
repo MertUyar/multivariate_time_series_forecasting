@@ -271,14 +271,14 @@ class Exp(object):
         self.model.eval()
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark, batch_cycle) in enumerate(pred_loader):
-                batch_x = np.concatenate(batch_x, batch_y, axis=1).float().to(self.device)
+                batch_x = torch.concatenate(batch_x, batch_y, axis=1).float().to(self.device)
                 # batch_y = batch_y.float().to(self.device)
-                batch_x_mark = np.concatenate(batch_x_mark, batch_y_mark, axis=1).float().to(self.device)
+                batch_x_mark = torch.concatenate(batch_x_mark, batch_y_mark, axis=1).float().to(self.device)
                 # batch_y_mark = batch_y_mark.float().to(self.device)
                 batch_cycle = batch_cycle.int().to(self.device)
 
-                for i in range(self.configs.est_horizon // self.configs.pred_len):
-                    predicted_step = i*self.configs.pred_len
+                for j in range(self.configs.est_horizon // self.configs.pred_len):
+                    predicted_step = j * self.configs.pred_len
                     batch = batch_x[:,predicted_step:self.configs.seq_len + predicted_step,:]
                     batch_mark = batch_x_mark[:,predicted_step:self.configs.seq_len + predicted_step,:]
 
@@ -288,7 +288,6 @@ class Exp(object):
                     else:
                         outputs = self.model(batch, batch_cycle, batch_mark)
 
-                    outputs = outputs
                     preds.append(outputs.detach().cpu().numpy())
                     batch_x[:, self.configs.seq_len + predicted_step:self.configs.seq_len + predicted_step + self.configs.pred_len, -1] = outputs[:,:,-1]
 
