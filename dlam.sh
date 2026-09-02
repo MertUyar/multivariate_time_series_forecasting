@@ -30,9 +30,7 @@ pred_len=24
 
 mkdir -p ./logs/GTRiTransformer
 
-# ---------------------------------------------------------------------------
-# Section 1 -- GTR Ablation setting (seq_len 96)
-# ---------------------------------------------------------------------------
+
 seq_len=96
 
 for cycle in 24 168 672
@@ -41,6 +39,7 @@ for random_seed in 2026
 do
     tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
     python -u run.py \
+      --do_predict \
       --is_training 1 \
       --model_id $tag \
       --model $model_name \
@@ -51,8 +50,7 @@ do
       --label_len 0 \
       --pred_len $pred_len \
       --est_horizon $est_horizon \
-      --do_predict False \
-      --enc_in 24 \
+      --enc_in 23 \
       --cycle $cycle \
       --period_len 24 \
       --use_revin 1 \
@@ -73,11 +71,7 @@ do
 done
 done
 
-# ---------------------------------------------------------------------------
-# Section 2 -- long-input setting, mirroring GTR's scripts/Input-336
-# A 336-step horizon from a 96-step history is a 3.5x extrapolation; GTR ships a
-# matched Input-336 variant for exactly this reason.
-# ---------------------------------------------------------------------------
+
 seq_len=336
 
 for cycle in 24 168 672
@@ -86,6 +80,7 @@ for random_seed in 2026
 do
     tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
     python -u run.py \
+      --do_predict \
       --is_training 1 \
       --model_id $tag \
       --model $model_name \
@@ -96,8 +91,7 @@ do
       --label_len 0 \
       --pred_len $pred_len \
       --est_horizon $est_horizon \
-      --do_predict False \
-      --enc_in 24 \
+      --enc_in 23 \
       --cycle $cycle \
       --period_len 24 \
       --use_revin 1 \
