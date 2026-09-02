@@ -17,7 +17,7 @@ from exp import Exp
 parser = argparse.ArgumentParser(description='GTR + iTransformer for DLAM time series forecasting')
 
 # random seed
-parser.add_argument('--random_seed', type=int, default=2026, help='random seed')
+parser.add_argument('--random_seed', type=int, default=2024, help='random seed')
 
 # basic config
 parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
@@ -54,12 +54,12 @@ parser.add_argument('--backbone', type=str, default='iTransformer',
 # model dimensions
 parser.add_argument('--enc_in', type=int, default=23,
                     help='number of channels: 22 covariates + target; also sets var_num')
-parser.add_argument('--d_model', type=int, default=256, help='dimension of model')
+parser.add_argument('--d_model', type=int, default=512, help='dimension of model')
 parser.add_argument('--n_heads', type=int, default=8, help='num of heads')
 parser.add_argument('--e_layers', type=int, default=2, help='num of encoder layers')
 parser.add_argument('--d_ff', type=int, default=512, help='dimension of fcn')
 parser.add_argument('--factor', type=int, default=5, help='attn factor')
-parser.add_argument('--dropout', type=float, default=0.1, help='dropout')
+parser.add_argument('--dropout', type=float, default=0, help='dropout')
 parser.add_argument('--embed', type=str, default='timeF',
                     help='time features encoding, options:[timeF, fixed, learned]; '
                          'anything other than timeF switches the loader to integer date parts')
@@ -76,7 +76,7 @@ parser.add_argument('--patience', type=int, default=5, help='early stopping pati
 parser.add_argument('--learning_rate', type=float, default=0.0005, help='optimizer learning rate')
 parser.add_argument('--des', type=str, default='test', help='exp description')
 parser.add_argument('--loss', type=str, default='huber', help='loss function')
-parser.add_argument('--lradj', type=str, default='TST', help='adjust learning rate')
+parser.add_argument('--lradj', type=str, default='type3', help='adjust learning rate')
 parser.add_argument('--pct_start', type=float, default=0.3, help='pct_start for OneCycleLR')
 parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
 

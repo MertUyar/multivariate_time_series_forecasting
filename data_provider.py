@@ -35,7 +35,13 @@ class DLAM_Dataset(Dataset):
         self.num_series = num_series
         self.train_timestamp_length = train_timestamp_length
         self.val_timestamp_length = val_timestamp_length
-        self._phase_offset = (0 if self.set_type == 0 else (self.train_timestamp_length - self.seq_len) % self.cycle)
+
+        if self.set_type == 0:
+            self._phase_offset = 0
+        elif self.set_type == 1:
+            self._phase_offset = (self.train_timestamp_length - self.seq_len) % self.cycle
+        else:
+            self._phase_offset = self.train_timestamp_length % self.cycle
 
         self.__read_data__()
 

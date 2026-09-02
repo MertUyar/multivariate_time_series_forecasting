@@ -35,7 +35,7 @@ class Exp(object):
         criterion = nn.HuberLoss(delta=0.5)
         return criterion
 
-    def vali(self, vali_data, vali_loader, metric):
+    def vali(self, vali_data, vali_loader, criterion):
         total_loss = []
         preds = []
         trues = []
@@ -61,12 +61,12 @@ class Exp(object):
                 outputs = outputs[:, -self.configs.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.configs.pred_len:, f_dim:].to(self.device)
 
-                pred = outputs.detach().cpu().numpy()
-                true = batch_y.detach().cpu().numpy()
+                pred = outputs.detach().cpu()
+                true = batch_y.detach().cpu()
 
-                loss = metric(pred, true)
+                loss = criterion(pred, true)
 
-                total_loss.append(loss)
+                total_loss.append(loss.float().item())
         total_loss = np.average(total_loss)
         self.model.train()
         return total_loss
@@ -119,7 +119,7 @@ class Exp(object):
                         outputs = outputs[:, -self.configs.pred_len:, f_dim:]
                         batch_y = batch_y[:, -self.configs.pred_len:, f_dim:].to(self.device)
                         loss = criterion(outputs, batch_y)
-                        train_loss.append(loss.item())
+                        train_loss.append(loss.float().item())
                 else:
                     outputs = self.model(batch_x, batch_cycle, batch_x_mark)
                     # print(outputs.shape,batch_y.shape)
@@ -127,7 +127,7 @@ class Exp(object):
                     outputs = outputs[:, -self.configs.pred_len:, f_dim:]
                     batch_y = batch_y[:, -self.configs.pred_len:, f_dim:].to(self.device)
                     loss = criterion(outputs, batch_y)
-                    train_loss.append(loss.item())
+                    train_loss.append(loss.float().item())
 
                 if (i + 1) % 100 == 0:
                     print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
@@ -149,7 +149,7 @@ class Exp(object):
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
-            vali_loss = self.vali(vali_data, vali_loader, metrics.WAPE)
+            vali_loss = self.vali(vali_data, vali_loader, criterion)
 
             print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f}".format(
                 epoch + 1, train_steps, train_loss, vali_loss))
@@ -204,8 +204,8 @@ class Exp(object):
                 outputs = outputs[:, -self.configs.pred_len:, :]
                 batch_y = batch_y[:, -self.configs.pred_len:, :].to(self.device)
 
-                pred = outputs.detach().cpu().numpy()  # .squeeze()
-                true = batch_y.detach().cpu().numpy()  # .squeeze()
+                pred = outputs.float().detach().cpu().numpy()  # .squeeze()
+                true = batch_y.float().detach().cpu().numpy()  # .squeeze()
 
                 preds.append(pred)
                 trues.append(true)
@@ -280,7 +280,7 @@ class Exp(object):
                     else:
                         outputs = self.model(batch, batch_cycle, batch_mark)
 
-                    preds.append(outputs.detach().cpu().numpy())
+                    preds.append(outputs.float().detach().cpu().numpy())
                     batch_x[:, self.configs.seq_len + predicted_step:self.configs.seq_len + predicted_step + self.configs.pred_len, -1] = outputs[:,:,-1]
 
         preds = np.concatenate(preds, axis=0)                      

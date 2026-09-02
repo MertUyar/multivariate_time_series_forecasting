@@ -30,12 +30,12 @@ pred_len=24
 
 mkdir -p ./logs/GTRiTransformer
 
-
+#test dropout
 seq_len=96
 
 for cycle in 24 168 672
 do
-for random_seed in 2026
+for random_seed in 2024
 do
     tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
     python -u run.py \
@@ -53,15 +53,13 @@ do
       --enc_in 23 \
       --cycle $cycle \
       --period_len 24 \
-      --use_revin 1 \
+      --use_revin 0 \
       --e_layers 3 \
       --n_heads 8 \
       --d_model 512 \
       --d_ff 512 \
-      --dropout 0.1 \
-      --embed timeF \
+      --dropout 0 \
       --freq h \
-      --lradj type3 \
       --pct_start 0.3 \
       --train_epochs 30 \
       --patience 5 \
@@ -72,12 +70,12 @@ do
 done
 done
 
-
+: '
 seq_len=336
 
 for cycle in 24 168 672
 do
-for random_seed in 2026
+for random_seed in 2024
 do
     tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
     python -u run.py \
@@ -95,15 +93,13 @@ do
       --enc_in 23 \
       --cycle $cycle \
       --period_len 24 \
-      --use_revin 1 \
+      --use_revin 0 \
       --e_layers 3 \
       --n_heads 8 \
       --d_model 512 \
       --d_ff 512 \
-      --dropout 0.1 \
-      --embed timeF \
+      --dropout 0 \
       --freq h \
-      --lradj type3 \
       --pct_start 0.3 \
       --train_epochs 30 \
       --patience 5 \
@@ -113,3 +109,4 @@ do
       2>&1 | tee ./logs/GTRiTransformer/$tag.log
 done
 done
+'
