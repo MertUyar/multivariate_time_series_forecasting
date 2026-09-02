@@ -1,3 +1,12 @@
 DLAM_96_24_cycle24_seed2026_GTRiTransformer_iTransformer_DLAM_ftMS_sl96_pl24_cycle24_dm512_el3_seed2026_0  
 mse:15.999678611755371, mae:2.79559588432312, wape:0.261184424161911
 
+DLAM_96_24_cycle24_seed2024_GTRiTransformer_iTransformer_DLAM_ftMS_sl96_pl24_cycle24_dm512_el3_seed2024_0  
+mse:14.779792785644531, mae:2.699073076248169, wape:0.25216659903526306
+
+DLAM_96_24_cycle168_seed2024_GTRiTransformer_iTransformer_DLAM_ftMS_sl96_pl24_cycle168_dm512_el3_seed2024_0  
+mse:14.883563995361328, mae:2.7024447917938232, wape:0.252481609582901
+
+DLAM_96_24_cycle672_seed2024_GTRiTransformer_iTransformer_DLAM_ftMS_sl96_pl24_cycle672_dm512_el3_seed2024_0  
+mse:14.79529094696045, mae:2.697145700454712, wape:0.2519865036010742
+

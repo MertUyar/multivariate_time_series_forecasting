@@ -11,8 +11,3 @@ wheels/
 
 # outputs and logging
 wandb/
-
-logs/
-checkpoints/
-results/
-test_results/
