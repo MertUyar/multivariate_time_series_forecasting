@@ -66,6 +66,7 @@ do
       --train_epochs 30 \
       --patience 5 \
       --num_workers 0 \
+      --use_amp \
       --itr 1 --batch_size 16 --learning_rate 0.0005 --random_seed $random_seed \
       2>&1 | tee ./logs/GTRiTransformer/$tag.log
 done
@@ -107,6 +108,7 @@ do
       --train_epochs 30 \
       --patience 5 \
       --num_workers 0 \
+      --use_amp \
       --itr 1 --batch_size 16 --learning_rate 0.0005 --random_seed $random_seed \
       2>&1 | tee ./logs/GTRiTransformer/$tag.log
 done

@@ -52,7 +52,7 @@ class Exp(object):
 
                 # encoder - decoder
                 if self.configs.use_amp:
-                    with torch.amp.autocast(device_type="cuda"): 
+                    with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16): 
                         outputs = self.model(batch_x, batch_cycle, batch_x_mark)
                 else:
                     outputs = self.model(batch_x, batch_cycle, batch_x_mark)
@@ -87,9 +87,6 @@ class Exp(object):
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
 
-        if self.configs.use_amp:
-            scaler = torch.cuda.amp.GradScaler()
-
         scheduler = lr_scheduler.OneCycleLR(optimizer=model_optim,
                                             steps_per_epoch=train_steps,
                                             pct_start=self.configs.pct_start,
@@ -115,7 +112,7 @@ class Exp(object):
 
                 # encoder - decoder
                 if self.configs.use_amp:
-                    with torch.amp.autocast(device_type="cuda"):
+                    with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
                         outputs = self.model(batch_x, batch_cycle, batch_x_mark)
 
                         f_dim = -1 if self.configs.features == 'MS' else 0
@@ -140,13 +137,8 @@ class Exp(object):
                     iter_count = 0
                     time_now = time.time()
 
-                if self.configs.use_amp:
-                    scaler.scale(loss).backward()
-                    scaler.step(model_optim)
-                    scaler.update()
-                else:
-                    loss.backward()
-                    model_optim.step()
+                loss.backward()
+                model_optim.step()
 
                 # current_memory = torch.cuda.max_memory_allocated() / 1024 ** 2
                 # max_memory = max(max_memory, current_memory)
@@ -204,7 +196,7 @@ class Exp(object):
 
                 # encoder - decoder
                 if self.configs.use_amp:
-                    with torch.amp.autocast(device_type="cuda"):
+                    with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
                         outputs = self.model(batch_x, batch_cycle, batch_x_mark)
                 else:
                     outputs = self.model(batch_x, batch_cycle, batch_x_mark)
@@ -283,7 +275,7 @@ class Exp(object):
                     batch_mark = batch_x_mark[:,predicted_step:self.configs.seq_len + predicted_step,:]
 
                     if self.configs.use_amp:
-                        with torch.amp.autocast(device_type="cuda"): 
+                        with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16): 
                             outputs = self.model(batch, batch_cycle, batch_mark)
                     else:
                         outputs = self.model(batch, batch_cycle, batch_mark)
