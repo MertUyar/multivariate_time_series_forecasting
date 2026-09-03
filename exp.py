@@ -138,6 +138,7 @@ class Exp(object):
                     time_now = time.time()
 
                 loss.backward()
+                nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 model_optim.step()
 
                 # current_memory = torch.cuda.max_memory_allocated() / 1024 ** 2
@@ -273,6 +274,7 @@ class Exp(object):
                     predicted_step = j * self.configs.pred_len
                     batch = batch_x[:,predicted_step:self.configs.seq_len + predicted_step,:]
                     batch_mark = batch_x_mark[:,predicted_step:self.configs.seq_len + predicted_step,:]
+                    batch_cycle += predicted_step
 
                     if self.configs.use_amp:
                         with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16): 

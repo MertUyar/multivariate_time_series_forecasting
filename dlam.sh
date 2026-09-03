@@ -32,43 +32,326 @@ mkdir -p ./logs/GTRiTransformer
 
 #test dropout
 seq_len=96
+cycle=24
+# for cycle in 24 168 672
+# do
+for random_seed in 2024
+do
+    tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
+    python -u run.py \
+      --is_training 1 \
+      --do_predict \
+      --model_id $tag \
+      --model $model_name \
+      --backbone $backbone \
+      --data $data_name \
+      --seq_len $seq_len \
+      --pred_len $pred_len \
+      --est_horizon $est_horizon \
+      --cycle $cycle \
+      --use_revin 0 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
+      --use_amp \
+      --itr 1 --batch_size 16 --learning_rate 0.0005 --random_seed $random_seed \
+      2>&1 | tee ./logs/GTRiTransformer/$tag.log
+done
 
-for cycle in 24 168 672
+for random_seed in 2024
+do
+    tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
+    python -u run.py \
+      --is_training 1 \
+      --do_predict \
+      --model_id $tag \
+      --model $model_name \
+      --backbone $backbone \
+      --data $data_name \
+      --seq_len $seq_len \
+      --pred_len $pred_len \
+      --est_horizon $est_horizon \
+      --cycle $cycle \
+      --use_revin 0 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
+      --use_amp \
+      --itr 1 --batch_size 16 --learning_rate 0.0001 --random_seed $random_seed \
+      2>&1 | tee ./logs/GTRiTransformer/$tag.log
+done
+: '
+# done
+for cycle in 24 72 168 672
 do
 for random_seed in 2024
 do
     tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
     python -u run.py \
-      --do_predict \
       --is_training 1 \
+      --do_predict \
       --model_id $tag \
       --model $model_name \
       --backbone $backbone \
       --data $data_name \
-      --features MS \
       --seq_len $seq_len \
-      --label_len 0 \
       --pred_len $pred_len \
       --est_horizon $est_horizon \
-      --enc_in 23 \
       --cycle $cycle \
-      --period_len 24 \
       --use_revin 0 \
-      --e_layers 3 \
-      --n_heads 8 \
-      --d_model 512 \
-      --d_ff 512 \
-      --dropout 0 \
-      --freq h \
-      --pct_start 0.3 \
-      --train_epochs 30 \
-      --patience 5 \
-      --num_workers 0 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
+      --use_amp \
+      --itr 1 --batch_size 16 --learning_rate 0.0001 --random_seed $random_seed \
+      2>&1 | tee ./logs/GTRiTransformer/$tag.log
+done
+done
+'
+: '
+#1
+for random_seed in 2024
+do
+    tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
+    python -u run.py \
+      --is_training 1 \
+      --do_predict \
+      --model_id $tag \
+      --model $model_name \
+      --backbone $backbone \
+      --data $data_name \
+      --seq_len $seq_len \
+      --pred_len $pred_len \
+      --est_horizon $est_horizon \
+      --cycle $cycle \
+      --use_revin 1 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
       --use_amp \
       --itr 1 --batch_size 16 --learning_rate 0.0005 --random_seed $random_seed \
       2>&1 | tee ./logs/GTRiTransformer/$tag.log
 done
+#2
+for random_seed in 2024
+do
+    tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
+    python -u run.py \
+      --is_training 1 \
+      --do_predict \
+      --model_id $tag \
+      --model $model_name \
+      --backbone $backbone \
+      --data $data_name \
+      --seq_len $seq_len \
+      --pred_len $pred_len \
+      --est_horizon $est_horizon \
+      --cycle $cycle \
+      --use_revin 0 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
+      --use_amp \
+      --itr 1 --batch_size 16 --learning_rate 0.005 --random_seed $random_seed \
+      2>&1 | tee ./logs/GTRiTransformer/$tag.log
 done
+#3
+for random_seed in 2024
+do
+    tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
+    python -u run.py \
+      --is_training 1 \
+      --do_predict \
+      --model_id $tag \
+      --model $model_name \
+      --backbone $backbone \
+      --data $data_name \
+      --seq_len $seq_len \
+      --pred_len $pred_len \
+      --est_horizon $est_horizon \
+      --cycle $cycle \
+      --use_revin 0 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
+      --use_amp \
+      --itr 1 --batch_size 16 --learning_rate 0.001 --random_seed $random_seed \
+      2>&1 | tee ./logs/GTRiTransformer/$tag.log
+done
+#4
+for random_seed in 2024
+do
+    tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
+    python -u run.py \
+      --is_training 1 \
+      --do_predict \
+      --model_id $tag \
+      --model $model_name \
+      --backbone $backbone \
+      --data $data_name \
+      --seq_len $seq_len \
+      --pred_len $pred_len \
+      --est_horizon $est_horizon \
+      --cycle $cycle \
+      --use_revin 0 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
+      --use_amp \
+      --itr 1 --batch_size 16 --learning_rate 0.0005 --random_seed $random_seed \
+      2>&1 | tee ./logs/GTRiTransformer/$tag.log
+done
+#5
+for random_seed in 2024
+do
+    tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
+    python -u run.py \
+      --is_training 1 \
+      --do_predict \
+      --model_id $tag \
+      --model $model_name \
+      --backbone $backbone \
+      --data $data_name \
+      --seq_len $seq_len \
+      --pred_len $pred_len \
+      --est_horizon $est_horizon \
+      --cycle $cycle \
+      --use_revin 0 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
+      --use_amp \
+      --itr 1 --batch_size 16 --learning_rate 0.0001 --random_seed $random_seed \
+      2>&1 | tee ./logs/GTRiTransformer/$tag.log
+done
+#6
+for random_seed in 2024
+do
+    tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
+    python -u run.py \
+      --is_training 1 \
+      --do_predict \
+      --model_id $tag \
+      --model $model_name \
+      --backbone $backbone \
+      --data $data_name \
+      --seq_len $seq_len \
+      --pred_len $pred_len \
+      --est_horizon $est_horizon \
+      --cycle $cycle \
+      --use_revin 1 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
+      --use_amp \
+      --lradj 'constant' \
+      --itr 1 --batch_size 16 --learning_rate 0.0005 --random_seed $random_seed \
+      2>&1 | tee ./logs/GTRiTransformer/$tag.log
+done
+#7 8
+for cycle in 168 672
+do
+for random_seed in 2024
+do
+    tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
+    python -u run.py \
+      --is_training 1 \
+      --do_predict \
+      --model_id $tag \
+      --model $model_name \
+      --backbone $backbone \
+      --data $data_name \
+      --seq_len $seq_len \
+      --pred_len $pred_len \
+      --est_horizon $est_horizon \
+      --cycle $cycle \
+      --use_revin 0 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
+      --use_amp \
+      --lradj 'constant' \
+      --itr 1 --batch_size 16 --learning_rate 0.0005 --random_seed $random_seed \
+      2>&1 | tee ./logs/GTRiTransformer/$tag.log
+done
+done
+#9
+#pred_len==est_horizon==336
+for random_seed in 2024
+do
+    tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
+    python -u run.py \
+      --is_training 1 \
+      --do_predict \
+      --model_id $tag \
+      --model $model_name \
+      --backbone $backbone \
+      --data $data_name \
+      --seq_len $seq_len \
+      --pred_len $est_horizon \
+      --est_horizon $est_horizon \
+      --cycle $cycle \
+      --use_revin 0 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
+      --use_amp \
+      --lradj 'constant' \
+      --itr 1 --batch_size 16 --learning_rate 0.0005 --random_seed $random_seed \
+      2>&1 | tee ./logs/GTRiTransformer/$tag.log
+done
+#10
+for random_seed in 2024
+do
+    tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
+    python -u run.py \
+      --is_training 1 \
+      --do_predict \
+      --model_id $tag \
+      --model $model_name \
+      --backbone $backbone \
+      --data $data_name \
+      --seq_len $seq_len \
+      --pred_len $pred_len \
+      --est_horizon $est_horizon \
+      --cycle $cycle \
+      --use_revin 0 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
+      --use_amp \
+      --lradj 'constant' \
+      --itr 1 --batch_size 32 --learning_rate 0.0005 --random_seed $random_seed \
+      2>&1 | tee ./logs/GTRiTransformer/$tag.log
+done
+#11
+seq_len=336
+for random_seed in 2024
+do
+    tag=$model_id_name'_'$seq_len'_'$pred_len'_cycle'$cycle'_seed'$random_seed
+    python -u run.py \
+      --is_training 1 \
+      --do_predict \
+      --model_id $tag \
+      --model $model_name \
+      --backbone $backbone \
+      --data $data_name \
+      --seq_len $seq_len \
+      --pred_len $pred_len \
+      --est_horizon $est_horizon \
+      --cycle $cycle \
+      --use_revin 0 \
+      --dropout 0.1 \
+      --train_epochs 10 \
+      --patience 10 \
+      --use_amp \
+      --lradj 'constant' \
+      --itr 1 --batch_size 16 --learning_rate 0.0005 --random_seed $random_seed \
+      2>&1 | tee ./logs/GTRiTransformer/$tag.log
+done
+'
+
+
 
 : '
 seq_len=336

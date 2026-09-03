@@ -11,7 +11,7 @@ def analyze_candidate_cycles(): # 24, 168, 672
 
     df = df.sort_values(["series_id", "timestamp"])
 
-    candidate_lags = [24, 48, 72, 168, 168 *2, 168*4, 168*4*2, 168*4*3, 168*4*4]
+    candidate_lags = [24, 48, 72, 96, 168, 168 *2, 168*3, 168*4, 168*4*2, 168*4*3, 168*4*4]
 
     results = []
 

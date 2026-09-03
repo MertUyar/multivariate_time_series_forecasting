@@ -56,9 +56,9 @@ parser.add_argument('--enc_in', type=int, default=23,
                     help='number of channels: 22 covariates + target; also sets var_num')
 parser.add_argument('--d_model', type=int, default=512, help='dimension of model')
 parser.add_argument('--n_heads', type=int, default=8, help='num of heads')
-parser.add_argument('--e_layers', type=int, default=2, help='num of encoder layers')
+parser.add_argument('--e_layers', type=int, default=3, help='num of encoder layers')
 parser.add_argument('--d_ff', type=int, default=512, help='dimension of fcn')
-parser.add_argument('--factor', type=int, default=5, help='attn factor')
+parser.add_argument('--factor', type=int, default=1, help='attn factor')
 parser.add_argument('--dropout', type=float, default=0, help='dropout')
 parser.add_argument('--embed', type=str, default='timeF',
                     help='time features encoding, options:[timeF, fixed, learned]; '
