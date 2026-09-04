@@ -1,7 +1,6 @@
 import pandas as pd
 from scipy.signal import detrend
 from statsmodels.tsa.stattools import acf
-from scipy.signal import find_peaks
 
 
 def analyze_candidate_cycles(): # 24, 168, 672
