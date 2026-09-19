@@ -1,0 +1,379 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Time Series Forecasting Project Report\\
+\large Global Temporal Retrieval with an Inverted Transformer Backbone}
+\author{Group ID: 34 \\ Members: Mert Uyar, Efe Akkus}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We study multivariate hourly forecasting on a panel of 96 related series, where the goal
+is to predict a target channel over a 336 hour horizon from a short window of recent
+observations and a set of covariates. Our model combines a Global Temporal Retriever (GTR) \cite{cao2026gtr},
+which stores a learnable bank of periodic patterns and fuses them with the input through a
+small two dimensional convolution, with an inverted Transformer (iTransformer) backbone that
+treats each channel as a token. The long horizon is produced autoregressively in 24 hour
+blocks so that known future covariates can be used at every step. The dominant period is
+selected with an autocorrelation analysis, as suggested for cycle based models, and we compare
+cycle lengths of 24, 168, and 672 hours. On the internal validation split the best
+configuration reaches a Weighted Absolute Percentage Error (WAPE) of about 30.69 with a daily
+cycle. We find that the recurrent 24 hour rollout clearly beats a single direct 336 step head,
+that a shorter cycle and a smaller learning rate help most, and that a good learning rate and
+gradient clipping matter more for this task than the choice of cycle length. The GitHub repo: 
+\href{https://github.com/MertUyar/multivariate_time_series_forecasting}{\texttt{https://github.com/MertUyar/multivariate\_time\_series\_forecasting}}.
+\end{abstract}
+
+\section{Introduction}
+Forecasting many correlated time series at once is a common industrial problem. In our setting
+we are given 96 units, each recorded hourly, and for every unit we observe a target signal
+together with a group of covariates such as calendar features, workload and demand estimates,
+and several risk indicators. The task is to forecast the target of each unit for the next
+336 hours, that is two weeks ahead, using only the recent past and the covariates that are
+known for the horizon.
+
+The problem is interesting for three reasons. First, the horizon is long relative to the input
+window, so a model has to capture structure that repeats over days and weeks rather than only
+short local dynamics. Second, the 96 units share behaviour but differ in level and scale, which
+means a single global model has to normalise per unit while still learning shared patterns.
+Third, several covariates are given for the future, so a good method should exploit this known
+future information instead of ignoring it. These properties make the dataset a useful test bed
+for models that mix explicit periodic structure with a learned sequence model.
+
+Our contributions are as follows. We implement a two stage model in PyTorch that first passes
+the input through a Global Temporal Retriever \cite{cao2026gtr} and then through a forecasting backbone, and we
+support both an inverted Transformer and a decomposition linear model as interchangeable
+backbones. Our main goal is to find out whether GTR \cite{cao2026gtr} is a good model for this task since it is 
+a proven plug and play model to capture long periodicites. We describe how the periodic pattern bank is retrieved by cycle phase and fused with
+the input by a convolution, and how the long horizon is produced by an autoregressive rollout
+that reuses known future covariates. We select the modelling period with an autocorrelation
+study and run ablations over cycle length, look back length, learning rate, loss function, and
+the horizon strategy. Finally we report the validation results and discuss what mattered most.
+
+\section{Related Work}
+Transformer models have become a standard tool for sequence modelling since the introduction of
+self attention \cite{vaswani2017}. For long horizon forecasting a line of work has adapted the
+architecture to reduce cost and to better match the structure of time series, including
+Informer \cite{zhou2021informer} and Autoformer \cite{wu2021autoformer}. A different and
+simpler view was put forward by DLinear \cite{zeng2023dlinear}, which decomposes a series into
+trend and seasonal parts and applies a linear map to each, and which remains a strong and
+cheap baseline. PatchTST \cite{nie2023patchtst} showed that treating patches of a single channel
+as tokens is very effective. The iTransformer \cite{liu2024itransformer} inverts the usual
+layout and treats each variate as a token, so that attention operates across channels rather
+than across time. This inversion fits multivariate panels well and is the main backbone we use.
+
+A separate thread models periodicity explicitly. RevIN \cite{kim2022revin} removes per instance
+mean and variance before the model and restores them afterwards, which stabilises training when
+series drift in level. CycleNet \cite{lin2024cyclenet} argues that many series are dominated by
+a small number of periods and proposes to learn a shared bank of periodic components indexed by
+the position within the cycle. Our Global Temporal Retriever \cite{cao2026gtr} follows this idea: it keeps a
+learnable table of periodic patterns and retrieves the entry that matches the current phase,
+which lets the backbone focus on the residual behaviour rather than on re learning the cycle at
+every window. Following the CycleNet recommendation, we identify the period with an
+autocorrelation analysis instead of fixing it by hand.
+
+\section{Method}
+\subsection{Problem setup}
+Let a single unit have a history $x_{1:T}\in\mathbb{R}^{T\times N}$, where $T$ is the look back
+length and $N$ is the number of channels, with the target channel placed last. We forecast the
+target over a horizon $H$. The backbone predicts a block of length $S$ at a time, and the full
+horizon $H$ is produced by repeating the block prediction. In our runs $T=96$, $S=24$, and
+$H=336$, so $H$ is covered by $14$ successive blocks. The forecasting mode is multivariate to
+univariate: all $N$ channels enter the model but only the target is scored.
+
+\subsection{Global Temporal Retriever \cite{cao2026gtr}}
+The Global Temporal Retriever (GTR) \cite{cao2026gtr} is applied to the input before the backbone. It stores a
+learnable parameter bank $Q\in\mathbb{R}^{C\times N}$, where $C$ is the cycle length and $N$ is
+the number of channels. Row $c$ of $Q$ is the pattern that the model expects at phase $c$ of the
+cycle, for every channel. Given the phase of the first step of the window, $\phi$, the retrieved
+pattern for the window is
+\begin{equation}
+q_{t} = Q\big[(\phi + t)\bmod C\big], \qquad t=0,\dots,T-1,
+\end{equation}
+which produces a tensor $q\in\mathbb{R}^{T\times N}$ aligned in phase with the input. A linear
+layer along the time axis then refines $q$, giving the model freedom to reshape the retrieved
+template rather than copy it exactly.
+
+The refined pattern is fused with the observed input through a small two dimensional
+convolution. We stack the input and the retrieved pattern along a new axis of size two, so each
+channel is represented by a $2\times T$ image whose first row is the observation and whose
+second row is the retrieved cyclic template. A convolution with a single input and output
+channel, a kernel of height two and width $2\lfloor P/2\rfloor+1$, and temporal padding
+$\lfloor P/2\rfloor$ mixes the two rows across a temporal window of roughly one period $P$:
+\begin{equation}
+z = \mathrm{Conv2D}\big(\,[\,x \,;\, q\,]\,\big), \qquad
+\hat{x} = z + x .
+\end{equation}
+The kernel height of two lets the convolution combine the current value with the phase matched
+global pattern, the kernel width tied to the period lets it borrow information from neighbouring
+positions within the cycle, and the residual connection keeps the original signal intact so the
+retriever only has to add periodic structure. A dropout of $0.1$ is applied inside GTR \cite{cao2026gtr}. The
+output has the same shape as the input and is passed to the backbone.
+
+\subsection{Forecasting backbones}
+\paragraph{iTransformer.} Our main backbone is an inverted Transformer
+\cite{liu2024itransformer}. Each channel is embedded into a token by projecting its length $T$
+series to a $d_{\text{model}}$ vector, so the sequence of tokens has length equal to the number
+of channels. Temporal features and a one hot encoding of the unit identity are appended as
+extra tokens, which lets attention share information across channels and across units. An
+encoder only stack of self attention and feed forward blocks processes the tokens, and a linear
+projector maps each channel token to the $S$ step forecast, after which the covariate tokens are
+discarded and only the real channels are kept. We use $d_{\text{model}}=512$,
+$d_{\text{ff}}=512$, three encoder layers, eight heads, and dropout $0.1$.
+
+\paragraph{DLinear.} For comparison we replace the backbone with DLinear
+\cite{zeng2023dlinear}. It decomposes the input into a trend part, obtained with a moving average
+of kernel size 25, and a seasonal remainder, then applies a separate linear map from length $T$
+to length $S$ to each part and sums the two. DLinear has no attention and few parameters, which
+makes it a useful lower complexity reference for the same pipeline.
+
+\subsection{Normalisation and input encoding}
+Because the 96 units differ in level and scale, we apply reversible instance normalisation
+\cite{kim2022revin} around the backbone. For each window we subtract the per channel temporal
+mean and divide by the per channel temporal standard deviation, run GTR \cite{cao2026gtr} and the backbone on the
+normalised input, then multiply by the standard deviation and add the mean back to the forecast:
+\begin{equation}
+\tilde{x} = \frac{x-\mu}{\sqrt{\sigma^{2}+\varepsilon}}, \qquad
+\hat{y} = \sqrt{\sigma^{2}+\varepsilon}\;\hat{y}_{\text{norm}} + \mu .
+\end{equation}
+We tested with it but it didn't improve or even hurt the training, so decided not to use it.
+
+\subsection{Autoregressive rollout}
+The backbone predicts $S=24$ hours at a time, while the required horizon is $H=336$ hours. We
+produce the horizon recurrently. Starting from the last $T$ real observations we predict the
+next 24 hours, write the predicted target back into the target channel of the input, advance
+the window by 24 hours, and repeat until the 336 hour horizon is filled. The covariates for the
+horizon are known and are read from the validation input at every step, so only the target
+channel is fed back. Predicting short blocks and rolling forward keeps each individual
+prediction close to the training distribution and lets the model use the known future covariates
+at every step, which we found to be far more accurate than training a single head that outputs
+all 336 steps at once.
+
+\subsection{Preprocessing}
+Following the CycleNet \cite{lin2024cyclenet} recommendation for cycle based models, we do not fix the period by hand.
+As a preprocessing step we detrend each unit and compute the autocorrelation function of the
+target, then inspect the correlation at candidate lags of one day, one week, and multiples of a
+week. The daily lag of 24 hours and the weekly lag of 168 hours show the strongest and most
+consistent autocorrelation across units, so we treat the cycle length as a hyperparameter and
+test 24, 168, and 672 hours in the experiments. The data was also scaled with StandardScaler from sklearn library.
+
+\subsection{Training}
+We train with the Huber loss with $\delta=0.5$, which is less sensitive to large residuals than
+the squared error, using the Adam optimiser. Gradients are clipped to a maximum norm of $1.0$
+for stability, which we added after observing unstable early training at higher learning rates.
+We use early stopping on the internal validation loss with a patience of five epochs, and we fix
+the random seed for Python, NumPy, and PyTorch so that runs are reproducible. The dataset is
+read once and cached locally, and inference loads a saved checkpoint, so the final forecasting
+step does not require internet access.
+
+\section{Experiments}
+\subsection{Data and protocol}
+The data consist of 96 hourly units with a shared feature schema of 22 covariates and one target
+channel, giving 23 channels per window. For each unit we hold out the last 336 hours of the
+training file as an internal validation set and train on the remainder, and we report metrics on
+this internal split. The official validation input is used only to produce the final 336 hour
+forecast through the autoregressive rollout described above. Unless stated otherwise all runs use
+a look back of 96 hours, RevIN not used, a 24 hour prediction block, and the hyperparameters in
+Table~\ref{tab:hparams}.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lr}
+\toprule
+Hyperparameter & Value \\
+\midrule
+Look back length $T$ & 96 \\
+Prediction block $S$ & 24 \\
+Forecast horizon $H$ & 336 \\
+Channels $N$ (\texttt{enc\_in}) & 23 \\
+Backbone & iTransformer (DLinear for comparison) \\
+$d_{\text{model}}$, $d_{\text{ff}}$ & 512, 512 \\
+Encoder layers, heads & 3, 8 \\
+Dropout (GTR and backbone) & 0.1 \\
+Cycle length $C$ & 24, 168, or 672 \\
+Convolution period $P$ & 24 \\
+Normalisation & No RevIN \\
+Loss & Huber ($\delta=0.5$); MSE for comparison \\
+Optimiser & Adam \\
+Learning rate & $5\times10^{-4}$ default, $1\times10^{-4}$ best \\
+Batch size & 16 (32 for DLinear) \\
+Max epochs / patience & 30 / 5 \\
+Gradient clipping (max norm) & 1.0 \\
+Random seed & 2024 \\
+\bottomrule
+\end{tabular}
+\caption{Main hyperparameters. Lower level defaults follow the released configuration.}
+\label{tab:hparams}
+\end{table}
+
+We evaluate with the Weighted Absolute Percentage Error, together with mean absolute error and
+mean squared error, computed on the target channel after de normalisation:
+\begin{equation}
+\mathrm{WAPE} = \frac{\sum_i |y_i-\hat{y}_i|}{\sum_i y_i}, \qquad
+\mathrm{MAE} = \frac{1}{n}\sum_i |y_i-\hat{y}_i|, \qquad
+\mathrm{MSE} = \frac{1}{n}\sum_i (y_i-\hat{y}_i)^2 .
+\end{equation}
+Lower is better for all three. WAPE is our primary metric because it is scale aware across units.
+
+\subsection{Baselines and backbone comparison}
+Table~\ref{tab:main} (the errors are taken from the submissions to the leader board) compares 
+our model against one reference forecasts and against the DLinear
+backbone inside the same pipeline. The naive last value forecast repeats the last observed
+target. These give the minimum and a stronger reference respectively.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+Method & WAPE & MAE & MSE \\
+\midrule
+Naive last value baseline & 61.35 & 5.29 & 48.61 \\
+GTR + DLinear backbone & 33.67 & 3.70 & 25.70 \\
+GTR + iTransformer backbone (ours) & \textbf{30.69} & \textbf{3.37} & \textbf{22.87} \\
+\bottomrule
+\end{tabular}
+\caption{Validation results on the internal split, target channel, 336 hour horizon by
+autoregressive rollout. Our best configuration uses a daily cycle and a learning rate of
+$1\times10^{-4}$. Baseline and DLinear numbers are to be filled from your own runs. 
+(The errors are taken from the submissions to the leader board.)}
+\label{tab:main}
+\end{table}
+
+\subsection{Cycle length}
+Table~\ref{tab:cycle} (the errors are taken from the validation split from the training data) 
+varies the cycle length while keeping everything else fixed. At the default
+learning rate the three cycles are close, with the weekly cycle slightly ahead, but the best
+result overall is the daily cycle once the learning rate is reduced. This is consistent with the
+autocorrelation analysis, where the 24 hour lag is the most stable across units, and it suggests
+that most of the recurring structure the model needs is daily.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+Cycle length (hours) & WAPE & MAE & MSE \\
+\midrule
+24, learning rate $5\times10^{-4}$ & 25.50 & 2.73 & 14.90 \\
+168, learning rate $5\times10^{-4}$ & 24.80 & 2.66 & 14.00 \\
+672, learning rate $5\times10^{-4}$ & 25.20 & 2.70 & 14.75 \\
+24, learning rate $1\times10^{-4}$ & \textbf{24.40} & \textbf{2.61} & \textbf{13.28} \\
+\bottomrule
+\end{tabular}
+\caption{Cycle length ablation with a 96 hour look back and a 24 hour block. Lower is better. 
+(The errors are taken from the validation split from the training data.)}
+\label{tab:cycle}
+\end{table}
+
+\subsection{Horizon strategy and look back length}
+Table~\ref{tab:horizon} (the errors are taken from the validation split from the training data) 
+isolates two design choices. Producing the horizon with a single direct
+336 step head is clearly worse than the autoregressive 24 hour rollout, which supports our choice
+to predict short blocks and reuse the known future covariates at each step. Increasing the look
+back from 96 to 336 hours did not help and slightly hurt, so we keep the 96 hour window, which
+also keeps the comparison across backbones fair.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+Setting & WAPE & MAE & MSE \\
+\midrule
+Autoregressive rollout, block 24 & \textbf{25.20} & \textbf{2.70} & \textbf{14.75} \\
+Direct head, 336 steps at once & 30.50 & 3.26 & 21.13 \\
+Look back 336 (rollout) & 26.10 & 2.79 & 15.28 \\
+\bottomrule
+\end{tabular}
+\caption{Horizon strategy and look back length, at cycle length 672 where both variants were
+run. The rollout beats the direct head and the shorter look back is at least as good. 
+(The errors are taken from the validation split from the training data.)}
+\label{tab:horizon}
+\end{table}
+
+\subsection{Learning rate, loss, and stability}
+Early in the project the training was unstable: with a learning rate of $5\times10^{-4}$ and a
+schedule that held the rate high for the first epochs, the validation loss was best at the first
+epoch and then rose, so early stopping ended the run before the model recovered. Both the
+training and validation loss increased together, which points to a learning rate that is too
+large rather than to overfitting. Reducing the learning rate to $1\times10^{-4}$ and adding
+gradient clipping removed this behaviour and gave the best result in Table~\ref{tab:cycle} 
+(the errors are taken from the validation split from the training data), and a
+constant high rate was clearly worse. Switching the loss from Huber to MSE 
+changed the result only marginally, so we kept the Huber loss for its robustness to
+large residuals.
+
+\section{Conclusion}
+We presented a two stage forecasting model that pairs a Global Temporal Retriever \cite{cao2026gtr} with an
+inverted Transformer backbone, and fills a 336 hour horizon
+by an autoregressive 24 hour rollout that reuses known future covariates. The main lessons are that recurrent 
+short block prediction beats a single long head, that a shorter cycle for this dataset and a smaller learning 
+rate help most, and that gradient clipping with a moderate learning rate is needed for stable training. 
+Limitations include a look back of only 96 hours, a single random
+seed per configuration in the reported numbers. On the internal validation split the best configuration 
+reaches a WAPE of about 30.69 with a daily cycle. Unfortunately, GTR \cite{cao2026gtr} with iTransformer \cite{liu2024itransformer} 
+backbone disappointed us in his prediction performance. We think that the problem lies in the fact that 
+GTR \cite{cao2026gtr} is thought to be for datasets with long periodicity which doesn't apply for this 
+dataset. GTR \cite{cao2026gtr} head seems to be only adding additional complexity. Future work could test 
+for ablation where GTR \cite{cao2026gtr} is removed, sweep the seed for variance estimates, try a longer 
+look back with the daily cycle, and use the covariate forecasts more directly inside the model rather than 
+only through the rollout.
+
+\section{LLMs}
+Claude is used to help write the report. No LLM is used to implement the model.
+
+\section*{Contributions}
+Mert Uyar: Coded GTR \cite{cao2026gtr}. Coded data loaders and experiments. Run experiments. Wrote report. \\
+Efe Akkus: Coded the backbones. Coded experiments. Run experiments. Wrote report.
+
+\begin{thebibliography}{10}
+
+\bibitem{cao2026gtr}
+F. Cao, L. Dai, J. Han, and H. Xiong. Enhancing Multivariate Time Series Forecasting with Global Temporal Retrieval.
+\textit{International Conference on Learning Representations}, 2026. arXiv:2602.10847.
+
+\bibitem{vaswani2017}
+A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, L. Kaiser, and
+I. Polosukhin. Attention Is All You Need. \textit{Advances in Neural Information Processing
+Systems}, 2017.
+
+\bibitem{liu2024itransformer}
+Y. Liu, T. Hu, H. Zhang, H. Wu, S. Wang, L. Ma, and M. Long. iTransformer: Inverted Transformers
+Are Effective for Time Series Forecasting. \textit{International Conference on Learning
+Representations}, 2024.
+
+\bibitem{zeng2023dlinear}
+A. Zeng, M. Chen, L. Zhang, and Q. Xu. Are Transformers Effective for Time Series Forecasting?
+\textit{AAAI Conference on Artificial Intelligence}, 2023.
+
+\bibitem{lin2024cyclenet}
+S. Lin, W. Lin, X. Hu, W. Wu, R. Mo, and H. Zhong. CycleNet: Enhancing Time Series Forecasting
+through Modeling Periodic Patterns. \textit{Advances in Neural Information Processing Systems},
+2024.
+
+\bibitem{kim2022revin}
+T. Kim, J. Kim, Y. Tae, C. Park, J.-H. Choi, and J. Choo. Reversible Instance Normalization for
+Accurate Time Series Forecasting against Distribution Shift. \textit{International Conference on
+Learning Representations}, 2022.
+
+\bibitem{nie2023patchtst}
+Y. Nie, N. H. Nguyen, P. Sinthong, and J. Kalagnanam. A Time Series is Worth 64 Words: Long Term
+Forecasting with Transformers. \textit{International Conference on Learning Representations}, 2023.
+
+\bibitem{wu2021autoformer}
+H. Wu, J. Xu, J. Wang, and M. Long. Autoformer: Decomposition Transformers with Auto Correlation
+for Long Term Series Forecasting. \textit{Advances in Neural Information Processing Systems}, 2021.
+
+\bibitem{zhou2021informer}
+H. Zhou, S. Zhang, J. Peng, S. Zhang, J. Li, H. Xiong, and W. Zhang. Informer: Beyond Efficient
+Transformer for Long Sequence Time Series Forecasting. \textit{AAAI Conference on Artificial
+Intelligence}, 2021.
+
+\end{thebibliography}
+
+\end{document}
